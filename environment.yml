@@ -1,0 +1,8 @@
+name: freyja-cryptic
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - freyja=1.5.1
+  - pip:
+      - python-outbreak-info
