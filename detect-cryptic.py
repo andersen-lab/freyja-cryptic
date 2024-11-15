@@ -20,8 +20,10 @@ def clean_raw_muts(muts):
             if int(deletion_size) % 3 != 0:
                 continue
             output.append(m)
+        else:
+            output.append(m)
     if len(output) == 0:
-        return None
+        return []
     return output
 
 
@@ -40,16 +42,19 @@ def parse_covariants(covariants_dir, metadata_file):
 
     agg_covariants = pd.DataFrame()
     for file in os.listdir(covariants_dir):
-        df = pd.read_csv(file, sep="\t")
-        df["Covariants"] = df["Covariants"].apply(clean_raw_muts)
+        df = pd.read_csv(f'{covariants_dir}/{file}', sep="\t")
+        try:
+            df["Covariants"] = df["Covariants"].apply(clean_raw_muts)
+        except:
+            continue
         df["query"] = df["Covariants"].apply(parse_aa_muts)
-        df["Sample"] = file.split(".")[0]
+        df["Sample"] = file.split(".trimmed")[0]
         agg_covariants = pd.concat([agg_covariants, df])
 
     # Merge metadata with covariants (if provided)
-    if metadata_file is not None:
-        metadata = pd.read_csv(metadata_file, sep="\t")
-        agg_covariants = pd.merge(agg_covariants, metadata, on="Sample", how="left")
+    # if metadata_file is not None:
+    #     metadata = pd.read_csv(metadata_file, sep="\t")
+    #     agg_covariants = pd.merge(agg_covariants, metadata, on="Sample", how="left")
     return agg_covariants
 
 
@@ -60,7 +65,7 @@ def query_clinical_data(aggregate_covariants, freyja_barcodes, START_DATE, END_D
     barcode_muts = pd.read_csv(freyja_barcodes, sep=",").columns
     cache = {}
     for row in aggregate_covariants.iterrows():
-        cluster = row["query"]
+        cluster = row[1]["query"]
         if str(cluster) in cache:
             continue
         if all([m.split("(")[0] in barcode_muts for m in cluster]):
@@ -93,21 +98,18 @@ def main():
     )
 
     parser.add_argument(
-        "covariants", help="Directory containing freyja covariants output"
+        "--covariants_dir", help="Directory containing freyja covariants output", type=str
     )
     parser.add_argument(
-        "metadata",
-        help='TSV containing at least "covariants_filename". Adds additional metadata to output file (see data/example_metadata.tsv)',
-        optional=True,
+        "--metadata",
+        help='TSV containing at least "covariants_filename". Adds additional metadata to output file (see data/example_metadata.tsv)'
     )
     parser.add_argument(
-        "output", help="Output file name", optional=True, default="cryptic_variants.tsv"
+        "--output", help="Output file name", default="cryptic_variants.tsv"
     )
     parser.add_argument(
-        "max_clinical_count",
+        "--max_clinical_count",
         help='Maximum number of clinical samples to consider a cluster "cryptic"',
-        optional=True,
-        default=10,
     )
 
     args = parser.parse_args()
@@ -117,15 +119,9 @@ def main():
     FREYJA_BARCODES = "freyja_metadata/sars-cov-2/usher_barcodes.csv"
 
     # Authenticate with GISAID credentials
-    authenticate_user.authenticate_new_user()
+    #authenticate_user.authenticate_new_user()
 
-    # Parse input files
-    if args.metadata:
-        metadata = pd.read_csv(args.metadata, sep="\t")
-    else:
-        metadata = None
-
-    aggregate_covariants = parse_covariants(args.covariants, metadata)
+    aggregate_covariants = parse_covariants(args.covariants_dir, args.metadata)
 
     # Query clinical data
     cryptic_variants = query_clinical_data(
