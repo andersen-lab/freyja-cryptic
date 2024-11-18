@@ -48,13 +48,16 @@ def parse_covariants(covariants_dir, metadata_file):
         except:
             continue
         df["query"] = df["Covariants"].apply(parse_aa_muts)
-        df["Sample"] = file.split(".trimmed")[0]
+        df = df[df["query"].apply(len) > 0]
+        df["Sample"] = file
         agg_covariants = pd.concat([agg_covariants, df])
 
+    agg_covariants.to_csv("agg_covariants.tsv", sep="\t", index=False)
+
     # Merge metadata with covariants (if provided)
-    # if metadata_file is not None:
-    #     metadata = pd.read_csv(metadata_file, sep="\t")
-    #     agg_covariants = pd.merge(agg_covariants, metadata, on="Sample", how="left")
+    if metadata_file is not None:
+        metadata = pd.read_csv(metadata_file, sep="\t")
+        agg_covariants = pd.merge(agg_covariants, metadata, on="Sample", how="left")
     return agg_covariants
 
 
@@ -86,7 +89,7 @@ def query_clinical_data(aggregate_covariants, freyja_barcodes, START_DATE, END_D
             cache[str(cluster)] = 0
 
     aggregate_covariants["Clinical_detections"] = aggregate_covariants["query"].apply(
-        lambda x: cache[x]
+        lambda x: cache[str(x)]
     )
 
     return aggregate_covariants
@@ -119,7 +122,10 @@ def main():
     FREYJA_BARCODES = "freyja_metadata/sars-cov-2/usher_barcodes.csv"
 
     # Authenticate with GISAID credentials
-    #authenticate_user.authenticate_new_user()
+    try:
+        authenticate_user.get_authentication()
+    except:
+        authenticate_user.authenticate_new_user()
 
     aggregate_covariants = parse_covariants(args.covariants_dir, args.metadata)
 
@@ -130,7 +136,7 @@ def main():
 
     # Filter for cryptic variants
     cryptic_variants = cryptic_variants[
-        cryptic_variants["Clinical_detections"] <= args.max_clinical_count
+        cryptic_variants["Clinical_detections"] <= float(args.max_clinical_count)
     ]
 
     # Save output
