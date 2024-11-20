@@ -13,7 +13,9 @@ def clean_raw_muts(muts):
     """Clean raw mutation strings from freyja output"""
     output = []
     for m in muts.split(" "):
-        if ":" not in m or "INS:" in m or "*" in m:
+        if ":" not in m or "*" in m:
+            continue
+        if ":INS" in m:
             continue
         if ":DEL" in m:
             deletion_size = m.split(")(")[0].split(",")[1]
@@ -31,10 +33,13 @@ def parse_aa_muts(muts):
     output = []
     for m in muts:
         if ":DEL" in m:
-            output.append(m.split(")(")[1][:-1])
+            if '/' not in m: # Workaround for deletion query bug
+                output.append(f'{m.split(")(")[1][:-1]}/{m.split(":DEL")[1][:-1]}')
+            else:
+                output.append(m.split(")(")[1][:-1])
         else:
             output.append(m.split("(")[1][:-1])
-    return output
+    return list(set(output))
 
 
 def parse_covariants(covariants_dir, metadata_file):
@@ -49,7 +54,7 @@ def parse_covariants(covariants_dir, metadata_file):
             continue
         df["query"] = df["Covariants"].apply(parse_aa_muts)
         df = df[df["query"].apply(len) > 0]
-        df["Sample"] = file
+        df["sample"] = file
         agg_covariants = pd.concat([agg_covariants, df])
 
     agg_covariants.to_csv("agg_covariants.tsv", sep="\t", index=False)
@@ -57,7 +62,7 @@ def parse_covariants(covariants_dir, metadata_file):
     # Merge metadata with covariants (if provided)
     if metadata_file is not None:
         metadata = pd.read_csv(metadata_file, sep="\t")
-        agg_covariants = pd.merge(agg_covariants, metadata, on="Sample", how="left")
+        agg_covariants = pd.merge(agg_covariants, metadata, on="sample", how="left")
     return agg_covariants
 
 
@@ -72,8 +77,9 @@ def query_clinical_data(aggregate_covariants, freyja_barcodes, START_DATE, END_D
         if str(cluster) in cache:
             continue
         if all([m.split("(")[0] in barcode_muts for m in cluster]):
-            cache[str(cluster)] = []
+            cache[str(cluster)] = None
             continue
+
         try:
             mut_data = od.lineage_cl_prevalence(
                 ".",
@@ -84,13 +90,19 @@ def query_clinical_data(aggregate_covariants, freyja_barcodes, START_DATE, END_D
                 datemax=END_DATE,
                 lineage_key=lineage_key,
             )
-            cache[str(cluster)] = mut_data["total_count"].sum()
-        except Exception as e:
+        except NameError:
+            continue
+
+        if mut_data is not None:
+            cache[str(cluster)] = mut_data["lineage_count"].sum()
+        else:
             cache[str(cluster)] = 0
 
-    aggregate_covariants["Clinical_detections"] = aggregate_covariants["query"].apply(
-        lambda x: cache[str(x)]
+    aggregate_covariants["num_clinical_detections"] = aggregate_covariants["query"].apply(
+        lambda x: cache[str(x)] if str(x) in cache else None
     )
+
+    aggregate_covariants = aggregate_covariants.dropna(subset=["num_clinical_detections"])
 
     return aggregate_covariants
 
@@ -136,7 +148,7 @@ def main():
 
     # Filter for cryptic variants
     cryptic_variants = cryptic_variants[
-        cryptic_variants["Clinical_detections"] <= float(args.max_clinical_count)
+        cryptic_variants["num_clinical_detections"] <= float(args.max_clinical_count)
     ]
 
     # Save output
