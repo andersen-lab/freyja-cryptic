@@ -39,7 +39,13 @@ def parse_metadata(sample):
     submission_month = submission_date[:2]
     submission_year = submission_date[-3:-1]
 
-    if submission_month == "01" and month == "DEC":
+    if sample == '01.08.24.PLDEC31.R1__NA__NA__240112_WW__00X.trimmed.sorted.unfiltered.sorted.bam.covariants.tsv':
+        print(submission_month, submission_year, month, day)
+        if submission_month == "01" and month == "12":
+            print('here')
+            print(f"20{int(submission_year)-1}")
+
+    if submission_month == "01" and month == "12":
         year = f"20{int(submission_year)-1}"
     else:
         year = f"20{submission_year}"
@@ -49,16 +55,16 @@ def parse_metadata(sample):
     return collection_date, loc
 
 def main():
-    metadata = pd.DataFrame(columns=["Sample", "Collection_Date", "Location"])
+    metadata = pd.DataFrame(columns=["sample", "collection_date", "location"])
 
-    metadata["Sample"] = [f for f in os.listdir("covariants")]
+    metadata["sample"] = [f for f in os.listdir("covariants")]
 
-    metadata["Collection_Date"], metadata["Location"] = zip(
-        *metadata["Sample"].map(parse_metadata)
+    metadata["collection_date"], metadata["location"] = zip(
+        *metadata["sample"].map(parse_metadata)
     )
-    metadata["Collection_Date"] = pd.to_datetime(metadata["Collection_Date"])
-    metadata = metadata.sort_values("Collection_Date")
-    metadata.to_csv("SEARCH_metadata.tsv", index=False, sep="\t")
+    metadata["collection_date"] = pd.to_datetime(metadata["collection_date"])
+    metadata = metadata.sort_values("collection_date")
+    metadata.to_csv("data/SEARCH_metadata.tsv", index=False, sep="\t")
 
 if __name__ == '__main__':
     main()
