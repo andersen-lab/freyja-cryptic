@@ -39,12 +39,6 @@ def parse_metadata(sample):
     submission_month = submission_date[:2]
     submission_year = submission_date[-3:-1]
 
-    if sample == '01.08.24.PLDEC31.R1__NA__NA__240112_WW__00X.trimmed.sorted.unfiltered.sorted.bam.covariants.tsv':
-        print(submission_month, submission_year, month, day)
-        if submission_month == "01" and month == "12":
-            print('here')
-            print(f"20{int(submission_year)-1}")
-
     if submission_month == "01" and month == "12":
         year = f"20{int(submission_year)-1}"
     else:
