@@ -1,8 +1,11 @@
 """ Detect cryptic mutation clusters in wastewater sequencing data """
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import argparse
 import os
 import pandas as pd
+from tqdm import tqdm
 
 from outbreak_data import outbreak_data as od
 from outbreak_data import authenticate_user
@@ -46,7 +49,7 @@ def parse_covariants(covariants_dir, metadata_file):
     """Parse freyja covariants output files, aggregate into one dataframe"""
 
     agg_covariants = pd.DataFrame()
-    for file in os.listdir(covariants_dir):
+    for file in tqdm(os.listdir(covariants_dir), desc="Parsing covariants"):
         df = pd.read_csv(f'{covariants_dir}/{file}', sep="\t")
         try:
             df["Covariants"] = df["Covariants"].apply(clean_raw_muts)
@@ -72,7 +75,7 @@ def query_clinical_data(aggregate_covariants, freyja_barcodes, START_DATE, END_D
     lineage_key = crumbs.get_alias_key()
     barcode_muts = pd.read_csv(freyja_barcodes, sep=",").columns
     cache = {}
-    for row in aggregate_covariants.iterrows():
+    for row in tqdm(aggregate_covariants.iterrows(), desc="Querying clinical data"):
         cluster = row[1]["query"]
         if str(cluster) in cache:
             continue
@@ -130,7 +133,7 @@ def main():
     args = parser.parse_args()
 
     START_DATE = "2020-01-01"
-    END_DATE = "2024-12-31"
+    END_DATE = "2025-12-31"
     FREYJA_BARCODES = "freyja_metadata/sars-cov-2/usher_barcodes.csv"
 
     # Authenticate with GISAID credentials

@@ -5,4 +5,6 @@ channels:
 dependencies:
   - freyja=1.5.1
   - pip:
-      - python-outbreak-info
+      - git+https://github.com/outbreak-info/python-outbreak-info.git@new_docs_2
+      - frozendict
+      - tqdm
