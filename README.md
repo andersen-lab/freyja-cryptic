@@ -15,7 +15,7 @@ mamba activate freyja-cryptic
 ## Usage
 
 ```bash
-python freyja-cryptic.py --covariants_dir /path/to/covariants --output_dir /path/to/output --metadata /path/to/metadata.csv --max_clinical_count (default=10)
+python detect-cryptic.py --covariants_dir /path/to/covariants --output_dir /path/to/output --metadata /path/to/metadata.csv --max_clinical_count (default=10)
 ```
 
-Upon running the script, a prompt will appear asking to authenticate with GISAID. This is needed to access the clinical data.
+Upon running the script for the first time, a prompt will appear asking to authenticate with GISAID. This is needed to access the clinical data.

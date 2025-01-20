@@ -4,3 +4,5 @@ covariants/
 sample_metadata/
 search_data/
 SEARCH_bam/
+evoplots
+*.tsv
