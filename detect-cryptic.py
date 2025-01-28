@@ -3,7 +3,7 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import argparse
-import os
+import sys, os
 import pandas as pd
 from tqdm import tqdm
 
@@ -11,6 +11,15 @@ from outbreak_data import outbreak_data as od
 from outbreak_data import authenticate_user
 from outbreak_tools import crumbs
 
+# Hide print statements from API calls
+class HiddenPrints:
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout
 
 def clean_raw_muts(muts):
     """Clean raw mutation strings from freyja output"""
@@ -45,7 +54,7 @@ def parse_aa_muts(muts):
     return list(set(output))
 
 
-def parse_covariants(covariants_dir, metadata_file):
+def parse_covariants(covariants_dir, metadata_file, sample_id):
     """Parse freyja covariants output files, aggregate into one dataframe"""
 
     agg_covariants = pd.DataFrame()
@@ -64,8 +73,12 @@ def parse_covariants(covariants_dir, metadata_file):
 
     # Merge metadata with covariants (if provided)
     if metadata_file is not None:
-        metadata = pd.read_csv(metadata_file, sep="\t")
-        agg_covariants = pd.merge(agg_covariants, metadata, on="sample", how="left")
+        if metadata_file.endswith(".csv"):
+            metadata = pd.read_csv(metadata_file)
+        else:
+            metadata = pd.read_csv(metadata_file, sep="\t")
+        agg_covariants[sample_id] = agg_covariants['sample'].apply(lambda x: x.split(".")[0])
+        agg_covariants = pd.merge(agg_covariants, metadata, on=sample_id, how="left")
     return agg_covariants
 
 
@@ -84,15 +97,16 @@ def query_clinical_data(aggregate_covariants, freyja_barcodes, START_DATE, END_D
             continue
 
         try:
-            mut_data = od.lineage_cl_prevalence(
-                ".",
-                descendants=True,
-                mutations=cluster,
-                location="USA",
-                datemin=START_DATE,
-                datemax=END_DATE,
-                lineage_key=lineage_key,
-            )
+            with HiddenPrints():
+                mut_data = od.lineage_cl_prevalence(
+                    ".",
+                    descendants=True,
+                    mutations=cluster,
+                    location="USA",
+                    datemin=START_DATE,
+                    datemax=END_DATE,
+                    lineage_key=lineage_key,
+                )
         except NameError:
             continue
 
@@ -123,10 +137,13 @@ def main():
         help='TSV containing at least "covariants_filename". Adds additional metadata to output file (see data/example_metadata.tsv)'
     )
     parser.add_argument(
+        "--sample_id", help="Sample ID column name", default="sample"
+    )
+    parser.add_argument(
         "--output", help="Output file name", default="cryptic_variants.tsv"
     )
     parser.add_argument(
-        "--max_clinical_count",
+        "--max_clinical_count", default=10,
         help='Maximum number of clinical samples to consider a cluster "cryptic"',
     )
 
@@ -142,7 +159,7 @@ def main():
     except:
         authenticate_user.authenticate_new_user()
 
-    aggregate_covariants = parse_covariants(args.covariants_dir, args.metadata)
+    aggregate_covariants = parse_covariants(args.covariants_dir, args.metadata, args.sample_id)
 
     # Query clinical data
     cryptic_variants = query_clinical_data(
