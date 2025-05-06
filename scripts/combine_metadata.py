@@ -1,5 +1,6 @@
-import os
 import pandas as pd
+import os 
+
 
 MONTHS = {
     "JAN": "01",
@@ -32,8 +33,12 @@ def parse_metadata(sample):
         date = sample[sample.index("PL") + 2 : sample.index("PL") + 7]
         submission_date = sample[: sample.index("PL")]
 
-    month = MONTHS[date[:3]]
-    day = date[3:]
+    try:
+        month = MONTHS[date[:3]]
+        day = date[3:]
+    except KeyError:
+        print(f"Error: {sample}")
+        return None, None
 
     
     submission_month = submission_date[:2]
@@ -49,16 +54,28 @@ def parse_metadata(sample):
     return collection_date, loc
 
 def main():
-    metadata = pd.DataFrame(columns=["sample", "collection_date", "location"])
+    META_DIR = "metadata/"
 
-    metadata["sample"] = [f for f in os.listdir("covariants")]
+    combined_metadata = pd.DataFrame()
+    
+    # Read all metadata files
+    for file in os.listdir(META_DIR):
+        if file.endswith(".csv"):
+            file_path = os.path.join(META_DIR, file)
+            metadata = pd.read_csv(file_path)
+            
+            # Combine metadata
+            combined_metadata = pd.concat([combined_metadata, metadata], ignore_index=True)
 
-    metadata["collection_date"], metadata["location"] = zip(
-        *metadata["sample"].map(parse_metadata)
+    print("Combined_metadata.columns:", combined_metadata.columns)
+    combined_metadata["collection_date"], combined_metadata["location"] = zip(
+        *combined_metadata["Sample"].map(parse_metadata)
     )
-    metadata["collection_date"] = pd.to_datetime(metadata["collection_date"])
-    metadata = metadata.sort_values("collection_date")
-    metadata.to_csv("data/SEARCH_metadata.tsv", index=False, sep="\t")
+    combined_metadata["collection_date"] = pd.to_datetime(combined_metadata["collection_date"])
+    combined_metadata = combined_metadata.sort_values("collection_date")
+
+    # Save combined metadata
+    combined_metadata.to_csv("combined_metadata.csv", index=False)
 
 if __name__ == '__main__':
     main()

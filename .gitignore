@@ -1,4 +1,4 @@
-bam/
+*bam/
 sorted_bam/
 covariants/
 sample_metadata/
@@ -6,3 +6,6 @@ search_data/
 SEARCH_bam/
 evoplots
 *.tsv
+san_diego/
+NICD
+*metadata
