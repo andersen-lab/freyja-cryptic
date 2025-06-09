@@ -21,64 +21,36 @@ class HiddenPrints:
         sys.stdout.close()
         sys.stdout = self._original_stdout
 
-def clean_raw_muts(muts):
-    """Clean raw mutation strings from freyja output"""
-    output = []
-    for m in muts.split(" "):
-        if ":" not in m or "*" in m:
-            continue
-        if ":INS" in m:
-            continue
-        if ":DEL" in m:
-            deletion_size = m.split(")(")[0].split(",")[1]
-            if int(deletion_size) % 3 != 0:
-                continue
-            output.append(m)
-        else:
-            output.append(m)
-    if len(output) == 0:
-        return []
-    return output
-
 
 def parse_aa_muts(muts):
     output = []
-    for m in muts:
+    for m in muts.split(' '):
+        if ":INS" in m or m == "Unknown": # Ignore insertions and unknown
+            continue
+        if m.split(":")[1][0] == m.split(":")[1][-1]: # Ignore synonymous mutations
+            continue
         if ":DEL" in m:
-            if '/' not in m: # Workaround for deletion query bug
-                output.append(f'{m.split(")(")[1][:-1]}/{m.split(":DEL")[1][:-1]}')
+            if '/' not in m: # Workaround for single aa deletion query bug (e.g. S:DEL144 -> S:DEL144/144)
+                output.append(f'{m}/{m.split(":DEL")[1][:-1]}')
             else:
-                output.append(m.split(")(")[1][:-1])
-        else:
-            output.append(m.split("(")[1][:-1])
+                output.append(m)
     return list(set(output))
 
 
-def parse_covariants(covariants_dir, metadata_file, sample_id):
+def parse_covariants(covariants_dir, sample_id):
     """Parse freyja covariants output files, aggregate into one dataframe"""
 
     agg_covariants = pd.DataFrame()
-    for file in tqdm(os.listdir(covariants_dir), desc="Parsing covariants"):
+    for file in os.listdir(covariants_dir):
         df = pd.read_csv(f'{covariants_dir}/{file}', sep="\t")
-        try:
-            df["Covariants"] = df["Covariants"].apply(clean_raw_muts)
-        except:
-            continue
-        df["query"] = df["Covariants"].apply(parse_aa_muts)
+
+        df["query"] = df["aa_mutations"].apply(parse_aa_muts)
         df = df[df["query"].apply(len) > 0]
         df["sample"] = file
         agg_covariants = pd.concat([agg_covariants, df])
 
     agg_covariants.to_csv("agg_covariants.tsv", sep="\t", index=False)
 
-    # Merge metadata with covariants (if provided)
-    if metadata_file is not None:
-        if metadata_file.endswith(".csv"):
-            metadata = pd.read_csv(metadata_file)
-        else:
-            metadata = pd.read_csv(metadata_file, sep="\t")
-        agg_covariants[sample_id] = agg_covariants['sample'].apply(lambda x: x.split(".")[0])
-        agg_covariants = pd.merge(agg_covariants, metadata, on=sample_id, how="left")
     return agg_covariants
 
 
@@ -107,7 +79,8 @@ def query_clinical_data(aggregate_covariants, freyja_barcodes, START_DATE, END_D
                     datemax=END_DATE,
                     lineage_key=lineage_key,
                 )
-        except NameError:
+        except NameError as e:
+            print(f"Error querying outbreak.info for cluster {cluster}: {e}")
             continue
 
         if mut_data is not None:
@@ -130,11 +103,7 @@ def main():
     )
 
     parser.add_argument(
-        "--covariants_dir", help="Directory containing freyja covariants output", type=str
-    )
-    parser.add_argument(
-        "--metadata",
-        help='TSV containing at least "covariants_filename". Adds additional metadata to output file (see data/example_metadata.tsv)'
+        "--covariants_dir", help="Directory containing coVar (linked mutations) output", type=str
     )
     parser.add_argument(
         "--sample_id", help="Sample ID column name", default="sample"
@@ -145,6 +114,10 @@ def main():
     parser.add_argument(
         "--max_clinical_count", default=10,
         help='Maximum number of clinical samples to consider a cluster "cryptic"',
+    )
+    parser.add_argument(
+        "--clinical_window",
+        help="Time window (+- months of wastwater sampling date) to query clinical data",
     )
 
     args = parser.parse_args()
@@ -159,7 +132,7 @@ def main():
     except:
         authenticate_user.authenticate_new_user()
 
-    aggregate_covariants = parse_covariants(args.covariants_dir, args.metadata, args.sample_id)
+    aggregate_covariants = parse_covariants(args.covariants_dir, args.sample_id)
 
     # Query clinical data
     cryptic_variants = query_clinical_data(

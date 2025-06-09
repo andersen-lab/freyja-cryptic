@@ -7,4 +7,5 @@ dependencies:
   - pip:
       - git+https://github.com/outbreak-info/python-outbreak-info.git@new_docs_2
       - frozendict
+      - pyyaml
       - tqdm
