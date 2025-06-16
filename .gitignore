@@ -6,6 +6,7 @@ search_data/
 SEARCH_bam/
 evoplots
 *.tsv
-san_diego/
+covar_out/
 NICD
-*metadata
+metadata/
+raw_metadata/
