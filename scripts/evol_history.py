@@ -30,26 +30,7 @@ def get_aa_site(mut):
     else: 
         return int(mut.split(':')[1][1:-1]
 )
-    
-# def get_simplified_names(muts,dupMuts):
-#     #check if nonsynonymous
 
-#     # if type(muts) is not tuple:
-#     #     muts = tuple([muts,])
-#     mutsNew = []
-#     for mut0 in muts:
-#         if ')(' in mut0:
-#             mutsNew.append(mut0.split(')(')[1].split(')')[0])
-#         else:
-#             aa0 = mut0.split('(')[1].split(')')[0]
-#             part0 = aa0.split(':')[1]
-#             if part0[0]==part0[-1]:
-#                 mutsNew.append(mut0.split('(')[0])
-#             else:
-#                 mutsNew.append(aa0)
-#         if mutsNew[-1] in dupMuts:
-#             mutsNew[-1] = mut0
-#     return mutsNew
 
 def get_duplicate_indices(lst):
     duplicates = {}
@@ -130,18 +111,6 @@ def main():
 
         df_superset.loc[:,'Covariants'] = df_superset['Covariants'].apply(lambda x: tuple(sorted(list(x),key=get_aa_site)))
 
-        hh = list(df_superset.index)
-        print("hh:",hh)
-        hh_flat = list(set([h0 for hh0 in hh for h0 in hh0]))
-        print("hh_flat:",hh_flat)
-        # hh_simplified = get_simplified_names(hh_flat,[])
-        # if len(set(hh_simplified))< len(hh_flat):
-        #     dupInds = get_duplicate_indices(hh_simplified)
-        #     dupMuts = set([hh_simplified[i0] for i0 in dupInds])
-        # else:
-            #dupMuts = set([])
-
-        dupMuts = set([])
 
         parent_list = []
         new_muts_list = []
@@ -164,7 +133,6 @@ def main():
                 parent_list.append(None)
                 new_muts_list.append(c)
 
-        print("new_muts_list:",new_muts_list)
 
         # for each, define parent, unless smallest cluster. 
         edge_labels = {}
@@ -175,9 +143,7 @@ def main():
             if parent_list[j] is not None:
                 for l in range(0,len(parent_list[j])):
                     G.add_edge(parent_list[j][l],c,weight=1)
-                    edge_labels[(parent_list[j][l],c)] = ','.join(new_muts_list[j][l])
-                    #edge_labels[(parent_list[j][l],c)] = ','.join(get_simplified_names(new_muts_list[j][l],dupMuts))
-        
+                    edge_labels[(parent_list[j][l],c)] = ','.join(new_muts_list[j][l])        
 
         try:
             if len(nx.dag_longest_path(G))<=2:
@@ -214,14 +180,8 @@ def main():
 
         for pk in pos.keys():
             if G.in_degree(pk)==0:
-                # ax.text(pos[pk][0],pos[pk][1]+y_length*0.04,'\n'.join(pk),fontsize=5,verticalalignment='bottom',horizontalalignment='center')
-                # else:
-                #ax.text(pos[pk][0]-x_length*0.06,pos[pk][1],'\n'.join(get_simplified_names(pk,dupMuts)),fontsize=5,verticalalignment='center',horizontalalignment='right')
                 ax.text(pos[pk][0]-x_length*0.06,pos[pk][1],'\n'.join(pk),fontsize=5,verticalalignment='center',horizontalalignment='right')
             if G.out_degree(pk)==0:
-                # ax.text(pos[pk][0],pos[pk][1]+y_length*0.04,'\n'.join(pk),fontsize=5,verticalalignment='bottom',horizontalalignment='center')
-                # else:
-                #ax.text(pos[pk][0]+x_length*0.06,pos[pk][1],'\n'.join(get_simplified_names(pk,dupMuts)),fontsize=5,verticalalignment='center',horizontalalignment='left')
                 ax.text(pos[pk][0]+x_length*0.06,pos[pk][1],'\n'.join(pk),fontsize=5,verticalalignment='center',horizontalalignment='left')
         # add number of clinical detections below ww detection count
         clin_detects = {c:counts for c,counts in zip(df_superset['Covariants'],df_superset['num_clinical_detections'])}
