@@ -65,8 +65,6 @@ def main():
     
     df_aggregate['Total_Obs']= df_aggregate['count'].apply(lambda x: len(x))
 
-    df_aggregate.to_csv('df_aggregate.tsv',sep='\t')
-
     # pull only cryptics (here, defined as 1 or less clinical detections)
     df_cryptics = df_aggregate[df_aggregate['num_clinical_detections']<=1]
     df_cryptics['Covariants'] = df_cryptics.index
@@ -209,7 +207,7 @@ def main():
                         fontsize=4,verticalalignment='center',horizontalalignment='center',color='black')
 
         plt.gca().set_frame_on(False)
-
+        df_superset.to_csv(f'evoplots/ww_evo_seq{i0}.tsv',sep='\t')
         plt.savefig(f'evoplots/ww_evo_seq{i0}.pdf',transparent=True)
         plt.close('all')
 
